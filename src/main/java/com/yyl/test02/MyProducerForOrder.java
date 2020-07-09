@@ -1,14 +1,17 @@
 package com.yyl.test02;
 
-import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.client.producer.MessageQueueSelector;
-import org.apache.rocketmq.client.producer.SendCallback;
-import org.apache.rocketmq.client.producer.SendResult;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.apache.rocketmq.client.producer.*;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * @Author yang.yonglian
@@ -22,34 +25,52 @@ import java.util.List;
 public class MyProducerForOrder {
     public static void main(String[] args) throws Exception{
         //部分顺序消息
-        DefaultMQProducer producer = new DefaultMQProducer("order_group");
-        producer.setNamesrvAddr("192.168.111.128:9876;192.168.111.129:9876");
+        //Producer的groupName和Consumer的groupName必须要不一样，否则消息消费会出现消费不完全或者消费不到的情况
+        DefaultMQProducer producer = new DefaultMQProducer("order_group_producer");
+        producer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         producer.start();
-        for(int  i=0;i<10;i++){
-            Message message = new Message("order_topic","yyl_tag",("hello rocketmq"+i).getBytes(RemotingHelper.DEFAULT_CHARSET));
+        List<Order> orders = buildOrders();
+        for(Order order:orders){
+            Message message = new Message("order_topic","yyl_tag",order.toString()
+                    .getBytes(RemotingHelper.DEFAULT_CHARSET));
+            message.setKeys(UUID.randomUUID().toString());
+            System.out.println(message.getKeys());
             //注意这里需要采用同步的方式发送，注意两个arg参数是对应的
-            SendResult sendResult = producer.send(message, new MessageQueueSelector() {
-                @Override
-                public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
-                    System.out.println("要发送队列的长度为:"+mqs.size());
-                    System.out.println("要发送的消息为："+msg);
-                    //order1、order4、order7发送到同一队列
-                    if("order1".equals(arg)||"order4".equals(arg)||"order7".equals(arg)){
-                        return mqs.get(0);
-                    }
-                    //order2、order5、order8发送到同一队列
-                    else if("order2".equals(arg)||"order5".equals(arg)||"order8".equals(arg)){
-                        return mqs.get(1);
-                    }
-                    ////order3、order6、order9发送到同一队列
-                    else if("order3".equals(arg)||"order6".equals(arg)||"order9".equals(arg)){
-                        return mqs.get(2);
-                    }else{
-                        return mqs.get(3);
-                    }
-                }
-            }, "order"+i);
-            System.out.println(sendResult);
+            SendResult sendResult = producer.send(message,(mqs,msg,arg)->{
+                int queueIndex = arg.hashCode()%mqs.size();
+                System.out.println("队列总数:"+mqs.size());
+                System.out.println("发送至队列下标为:"+queueIndex);
+                return mqs.get(queueIndex);
+            },order.getGroupName());
+            if(sendResult.getSendStatus()!= SendStatus.SEND_OK){
+                throw new RuntimeException("消息发送失败"+sendResult.getSendStatus());
+            }
         }
+    }
+    private static List<Order> buildOrders(){
+        List<Order> orders = new ArrayList<>();
+        Order order = new Order("话费充值","查找号码");
+        orders.add(order);
+        order = new Order("话费充值","查找余额");
+        orders.add(order);
+        order = new Order("话费充值","付款");
+        orders.add(order);
+        order = new Order("买空调","余额查询");
+        orders.add(order);
+        order = new Order("买空调","库存查询");
+        orders.add(order);
+        order = new Order("买空调","物流查询");
+        orders.add(order);
+        order = new Order("买空调","付款");
+        orders.add(order);
+        return orders;
+    }
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    @ToString
+    static class Order{
+        private String groupName;
+        private String name;
     }
 }

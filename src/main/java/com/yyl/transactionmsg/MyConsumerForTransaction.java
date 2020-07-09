@@ -18,8 +18,8 @@ import java.util.List;
  */
 public class MyConsumerForTransaction {
     public static void main(String[] args) throws Exception{
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("transaction_group");
-        consumer.setNamesrvAddr("192.168.111.128:9876;192.168.111.129:9876");
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("transaction_group_consumer");
+        consumer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         consumer.subscribe("transaction_topic","yyl_tag");
         //注册消息消费监听
         consumer.registerMessageListener(new MessageListenerConcurrently() {

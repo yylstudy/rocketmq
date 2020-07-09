@@ -15,16 +15,16 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
 public class MyProducer {
     public static void main(String[] args) throws Exception{
         //指定group名称，用于关联group上的所有的Producer
-        DefaultMQProducer producer = new DefaultMQProducer("yyl_group_name");
+        //Producer的groupName和Consumer的groupName必须要不一样，否则消息消费会出现消费不完全或者消费不到的情况
+        DefaultMQProducer producer = new DefaultMQProducer("yyl_group_producer");
         //当一个jvm需要启动多个producer时，通过设置不同的instanceName来区分，不设置的话默认为"DEFAULT"
         producer.setInstanceName("instance1");
         //设置发送失败消息重试次数
         producer.setRetryTimesWhenSendFailed(3);
         //设置namesrv的地址
-        producer.setNamesrvAddr("192.168.111.128:9876;192.168.111.129:9876");
+        producer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
 
         producer.start();
-        //同步发送消息，
         for(int i=0;i<10;i++){
             //创建一个消息，可以指定topic的名称 和 tag名称
             //如果抛出 No route info of this topic 异常，有可能是rocketmq的版本和rocket-client的jar包版本不一致导致的

@@ -1,4 +1,4 @@
-package com.yyl.test02;
+package com.yyl.test03;
 
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
@@ -19,12 +19,12 @@ import java.util.List;
  */
 public class MyConsumerForQuick {
     public static void main(String[] args) throws Exception{
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("order_group");
-        consumer.setNamesrvAddr("192.168.111.128:9876;192.168.111.129:9876");
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("yyl_group_quick_consumer");
+        consumer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         //设置consumer的并行线程数
         consumer.setConsumeThreadMax(10);
         consumer.setConsumeThreadMin(2);
-        consumer.subscribe("order_topic","yyl_tag");
+        consumer.subscribe("yyl_topic_quick","yyl_tag");
         //设置一次拉取消息的数目为3
         consumer.setConsumeMessageBatchMaxSize(3);
         consumer.registerMessageListener(new MessageListenerConcurrently() {

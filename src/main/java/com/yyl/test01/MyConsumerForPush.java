@@ -21,9 +21,10 @@ public class MyConsumerForPush {
         //配置消费这的group，这里的group和生产者的group是没有关系的，只是用来标识
         //同一个group下的不同consumer， 不同的group都可消费到同一个topic下的消息
         //这个特性可以用来做广播操作
-        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("yyl_group_name");
+        //相同的consumerGroup必须订阅完全相同的topic、
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("yyl_group_consumer");
         //设置namesrv的地址
-        consumer.setNamesrvAddr("192.168.111.128:9876;192.168.111.129:9876");
+        consumer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         //设置消息消费模式，rocketmq有两种消息消费模式
         //1）CLUSTERING：集群消费，从而达到负载均衡的目的，rocketmq默认是采用这种模式
         //在这种模式下是支持消息失败重投的
@@ -36,23 +37,24 @@ public class MyConsumerForPush {
         //设置消费的topic和topic下消息的tag
         consumer.subscribe("yyl_topic","yyl_tag");
         //注册消息消费监听
-        consumer.registerMessageListener(new MessageListenerConcurrently() {
-            @Override
-            public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
-                try{
-                    System.out.println("receive msg :"+msgs);
+        consumer.registerMessageListener((MessageListenerConcurrently) (msgs,context)->{
+            try{
+                for(MessageExt messageExt:msgs){
                     //消息消费都是需要做幂等处理的，因为messageId有可能出现冲突的情况，所以真正幂等的
                     //处理不建议使用messageId作为处理依据，最好的方式是以业务方唯一标识作为幂等处理的关键依据
                     //而业务方的唯一标识可以通过key设置
-                    String keys = msgs.get(0).getKeys();
-                    //消息消费成功
-                    return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
-                }catch (Exception e){
-                    //消息消费失败，进行消息重投，也就是进入 %RETRY%topic 队列 也就是 %RETRY%yyl_topic 队列中
-                    //默认会重试16次（重试时间间隔递增），如果还失败，将会进入死信队列
-                    //注意这种失败重投只在集群模式（CLUSTERING）模式下有效
-                    return ConsumeConcurrentlyStatus.RECONSUME_LATER;
+                    System.out.println("consumeThread="+Thread.currentThread().getName() + ",queueId="+
+                            messageExt.getQueueId()+", body="+new String(messageExt.getBody())+",keys="+messageExt.getKeys());
+                    String keys = messageExt.getKeys();
                 }
+
+                //消息消费成功
+                return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+            }catch (Exception e){
+                //消息消费失败，进行消息重投，也就是进入 %RETRY%topic 队列 也就是 %RETRY%yyl_topic 队列中
+                //默认会重试16次（重试时间间隔递增），如果还失败，将会进入死信队列
+                //注意这种失败重投只在集群模式（CLUSTERING）模式下有效
+                return ConsumeConcurrentlyStatus.RECONSUME_LATER;
             }
         });
         consumer.start();

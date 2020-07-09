@@ -11,32 +11,35 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
+import java.util.concurrent.*;
+
 /**
  * @Author yang.yonglian
  * @ClassName: com.yyl.transactionmsg
- * @Description: TODO(这里描述)
+ * @Description: 事务消息流程是
+ * 1)生产者向rocketmq发送待确认消息
+ * 2)发送方执行本地事务逻辑，本地事务方法可向rocketmq发送二次确认(Commit/Rollback/Unkonw)，
+ * 3)如果rocketmq收到Commit，则将待确认消息标记为可投递，如果收到Rollback，则将待确认消息删除
+ * 4)如果收到Unknow或者异常情况未收到确认，rocketmq将在固定时间对待确认消息进行回查，也就是会调用
+ * checkLocalTransaction，消息检查次数限制为15次，如果检查超过15次的话，broker将丢弃消息
  * @Date 2019/6/5 0005
  */
 public class MyProducerForTransaction {
     public static void main(String[] args) throws Exception{
-        MyProducerForTransaction transaction = new MyProducerForTransaction();
-        transaction.createOrder();
-    }
-
-    /**
-     * 创建订单接口，这个方法需要添加事务
-     */
-    public void createOrder() throws Exception{
-        //发送消息
-        sendMsg();
-    }
-
-    private void sendMsg() throws Exception{
-        TransactionMQProducer producer = new TransactionMQProducer("transaction_group");
+        TransactionMQProducer producer = new TransactionMQProducer("transaction_group_producer");
+        ExecutorService executorService = new ThreadPoolExecutor(2, 5, 100, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(2000), new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("client-transaction-msg-check-thread");
+                return thread;
+            }
+        });
         //创建一个事务监听器
         OrderTransactionListenerImpl listener = new OrderTransactionListenerImpl();
+        producer.setExecutorService(executorService);
         producer.setTransactionListener(listener);
-        producer.setNamesrvAddr("192.168.111.1228:9876;192.168.111.129:9876");
+        producer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         producer.start();
         Order order = new Order("1","order1");
         Message message = new Message("transaction_topic","yyl_tag",
@@ -44,6 +47,7 @@ public class MyProducerForTransaction {
         SendResult result = producer.sendMessageInTransaction(message,null);
         System.out.println(result);
     }
+
 
     static class OrderTransactionListenerImpl implements TransactionListener{
         /**
@@ -72,6 +76,7 @@ public class MyProducerForTransaction {
          */
         @Override
         public LocalTransactionState checkLocalTransaction(MessageExt messageExt) {
+            System.out.println("check messageExt:"+messageExt+" is exists in local");
             //使用消息key进行本地库查询
             boolean isExists = checkBusinessStatus(messageExt.getKeys());
             if(isExists){

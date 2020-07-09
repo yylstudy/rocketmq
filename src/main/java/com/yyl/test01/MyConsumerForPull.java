@@ -19,7 +19,7 @@ public class MyConsumerForPull {
     private static final Map<MessageQueue,Long> OFFSET_TABLE = new HashMap();
     public static void main(String[] args) throws Exception{
         DefaultMQPullConsumer consumer = new DefaultMQPullConsumer("please_rename_unique_group_name");
-        consumer.setNamesrvAddr("192.168.111.128:9876");
+        consumer.setNamesrvAddr("192.168.216.145:9876;192.168.216.148:9876");
         consumer.setMessageModel(MessageModel.CLUSTERING);
         consumer.start();
         Set<MessageQueue> mqs = consumer.fetchSubscribeMessageQueues("topicTest");
